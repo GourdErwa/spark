@@ -34,8 +34,8 @@ class BasicInMemoryTableCatalog extends TableCatalog {
   protected val namespaces: util.Map[List[String], Map[String, String]] =
     new ConcurrentHashMap[List[String], Map[String, String]]()
 
-  protected val tables: util.Map[Identifier, InMemoryTable] =
-    new ConcurrentHashMap[Identifier, InMemoryTable]()
+  protected val tables: util.Map[Identifier, Table] =
+    new ConcurrentHashMap[Identifier, Table]()
 
   private val invalidatedTables: util.Set[Identifier] = ConcurrentHashMap.newKeySet()
 
@@ -180,9 +180,21 @@ class InMemoryTableCatalog extends BasicInMemoryTableCatalog with SupportsNamesp
   }
 
   override def dropNamespace(namespace: Array[String]): Boolean = {
-    listNamespaces(namespace).map(dropNamespace)
-    listTables(namespace).map(dropTable)
+    listNamespaces(namespace).foreach(dropNamespace)
+    try {
+      listTables(namespace).foreach(dropTable)
+    } catch {
+      case _: NoSuchNamespaceException =>
+    }
     Option(namespaces.remove(namespace.toList)).isDefined
+  }
+
+  override def listTables(namespace: Array[String]): Array[Identifier] = {
+    if (namespace.isEmpty || namespaceExists(namespace)) {
+      super.listTables(namespace)
+    } else {
+      throw new NoSuchNamespaceException(namespace)
+    }
   }
 }
 

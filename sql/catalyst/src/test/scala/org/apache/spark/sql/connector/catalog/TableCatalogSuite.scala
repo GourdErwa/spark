@@ -64,12 +64,12 @@ class TableCatalogSuite extends SparkFunSuite {
     val ident2 = Identifier.of(Array("ns"), "test_table_2")
     val ident3 = Identifier.of(Array("ns2"), "test_table_1")
 
-    assert(catalog.listTables(Array("ns")).isEmpty)
+    intercept[NoSuchNamespaceException](catalog.listTables(Array("ns")))
 
     catalog.createTable(ident1, schema, Array.empty, emptyProps)
 
     assert(catalog.listTables(Array("ns")).toSet == Set(ident1))
-    assert(catalog.listTables(Array("ns2")).isEmpty)
+    intercept[NoSuchNamespaceException](catalog.listTables(Array("ns2")))
 
     catalog.createTable(ident3, schema, Array.empty, emptyProps)
     catalog.createTable(ident2, schema, Array.empty, emptyProps)
@@ -368,7 +368,7 @@ class TableCatalogSuite extends SparkFunSuite {
     assert(updated.schema == expectedSchema)
   }
 
-  test("alterTable: update column data type and nullability") {
+  test("alterTable: update column nullability") {
     val catalog = newCatalog()
 
     val originalSchema = new StructType()
@@ -379,25 +379,10 @@ class TableCatalogSuite extends SparkFunSuite {
     assert(table.schema == originalSchema)
 
     val updated = catalog.alterTable(testIdent,
-      TableChange.updateColumnType(Array("id"), LongType, true))
+      TableChange.updateColumnNullability(Array("id"), true))
 
-    val expectedSchema = new StructType().add("id", LongType).add("data", StringType)
+    val expectedSchema = new StructType().add("id", IntegerType).add("data", StringType)
     assert(updated.schema == expectedSchema)
-  }
-
-  test("alterTable: update optional column to required fails") {
-    val catalog = newCatalog()
-
-    val table = catalog.createTable(testIdent, schema, Array.empty, emptyProps)
-
-    assert(table.schema == schema)
-
-    val exc = intercept[IllegalArgumentException] {
-      catalog.alterTable(testIdent, TableChange.updateColumnType(Array("id"), LongType, false))
-    }
-
-    assert(exc.getMessage.contains("Cannot change optional column to required"))
-    assert(exc.getMessage.contains("id"))
   }
 
   test("alterTable: update missing column fails") {
@@ -856,7 +841,7 @@ class TableCatalogSuite extends SparkFunSuite {
     assert(catalog.dropNamespace(testNs))
 
     assert(!catalog.namespaceExists(testNs))
-    assert(catalog.listTables(testNs).isEmpty)
+    intercept[NoSuchNamespaceException](catalog.listTables(testNs))
   }
 
   test("alterNamespace: basic behavior") {
